@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- The default base URL is now production, `https://contactzilla.app/api/v1` (0.1.0 pointed at contactzilla.com). The bundled OpenAPI document's server and OAuth URLs are corrected too.
+
 ## 0.1.0
 
 First release.

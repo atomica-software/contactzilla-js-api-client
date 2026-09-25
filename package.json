@@ -1,6 +1,6 @@
 {
   "name": "@atomica-software/contactzilla",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Typed client for the Contactzilla API, generated from its OpenAPI description. Zero dependencies; Node 18+, browsers, Deno and Bun.",
   "license": "MIT",
   "author": "Atomica Software",
