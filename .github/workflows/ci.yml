@@ -34,6 +34,6 @@ jobs:
           npm pack --pack-destination "$RUNNER_TEMP"
           mkdir "$RUNNER_TEMP/consumer" && cd "$RUNNER_TEMP/consumer"
           npm init -y >/dev/null && npm pkg set type=module
-          npm install "$RUNNER_TEMP"/contactzilla-api-client-*.tgz
-          node -e 'import("@contactzilla/api-client").then(m => { if (!m.ContactzillaClient || !m.operations.listContacts) process.exit(1); console.log("core ok") })'
-          node -e 'import("@contactzilla/api-client/extend").then(m => { if (!m.createExtendClient) process.exit(1); console.log("extend ok") })'
+          npm install "$RUNNER_TEMP"/atomica-software-contactzilla-*.tgz
+          node -e 'import("@atomica-software/contactzilla").then(m => { if (!m.ContactzillaClient || !m.operations.listContacts) process.exit(1); console.log("core ok") })'
+          node -e 'import("@atomica-software/contactzilla/extend").then(m => { if (!m.createExtendClient) process.exit(1); console.log("extend ok") })'

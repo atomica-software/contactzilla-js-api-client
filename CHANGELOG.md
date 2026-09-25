@@ -9,5 +9,5 @@ First release.
 - Token as a string or an async function (for refresh); timeouts; cancellation; automatic retry of rate-limited requests (Retry-After).
 - Typed errors: `ContactzillaAuthError`, `ContactzillaForbiddenError`, `ContactzillaNotFoundError`, `ContactzillaValidationError`, `ContactzillaRateLimitError`.
 - `paginateContacts` to iterate every contact of a search.
-- Adapters, and `@contactzilla/api-client/extend` for apps inside a Contactzilla Extend stack.
+- Adapters, and `@atomica-software/contactzilla/extend` for apps inside a Contactzilla Extend stack.
 - Zero runtime dependencies. Node 18+, browsers, Deno, Bun.

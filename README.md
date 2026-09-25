@@ -1,4 +1,4 @@
-# @contactzilla/api-client
+# @atomica-software/contactzilla
 
 A typed JavaScript/TypeScript client for the [Contactzilla](https://contactzilla.com) API.
 
@@ -13,7 +13,7 @@ A typed JavaScript/TypeScript client for the [Contactzilla](https://contactzilla
 - **Adapters** for environments that reach Contactzilla another way, such as apps inside a [Contactzilla Extend](#contactzilla-extend) stack.
 
 ```ts
-import { ContactzillaClient } from "@contactzilla/api-client";
+import { ContactzillaClient } from "@atomica-software/contactzilla";
 
 const cz = new ContactzillaClient({ token: process.env.CONTACTZILLA_TOKEN });
 
@@ -28,7 +28,7 @@ console.log(`${count} VIP contacts; the first is ${results[0]?.first_name}`);
 ## Install
 
 ```sh
-npm install @contactzilla/api-client
+npm install @atomica-software/contactzilla
 ```
 
 The package is ESM with bundled type definitions.
@@ -97,7 +97,7 @@ Every schema is exported as a type (`Contact`, `ContactData`, `Team`, `AddressBo
 `listContacts` returns 50 contacts at a time. `paginateContacts` fetches the pages for you:
 
 ```ts
-import { paginateContacts } from "@contactzilla/api-client";
+import { paginateContacts } from "@atomica-software/contactzilla";
 
 for await (const contact of paginateContacts(cz, { team: "acme", address_book: "customers", updated_since: "2026-09-01T00:00:00Z" })) {
   await sync(contact);
@@ -126,7 +126,7 @@ A failed call throws a `ContactzillaError`, or one of its subclasses. Each carri
 | `ContactzillaError` with `status: 0` | Network failure (`code: "network_error"`), `"timeout"` or `"aborted"` |
 
 ```ts
-import { ContactzillaValidationError } from "@contactzilla/api-client";
+import { ContactzillaValidationError } from "@atomica-software/contactzilla";
 
 try {
   await cz.createContact({ team, address_book, body });
@@ -163,7 +163,7 @@ await cz.listContacts({ team, address_book }, { signal: controller.signal });
 An adapter fits the client to an environment that reaches Contactzilla differently, such as a proxy that adds credentials. It can supply default options, adjust each request just before it's sent, and translate errors:
 
 ```ts
-import { ContactzillaClient, type ClientAdapter } from "@contactzilla/api-client";
+import { ContactzillaClient, type ClientAdapter } from "@atomica-software/contactzilla";
 
 const viaMyProxy: ClientAdapter = {
   name: "my-proxy",
@@ -181,10 +181,10 @@ const cz = new ContactzillaClient({ adapter: viaMyProxy });
 
 ### Contactzilla Extend
 
-Apps built inside a Contactzilla Extend stack don't hold a token. They call the stack's proxy, which the stack sets in `CZ_API_BASE`. The proxy adds the stack's credentials and records which user acted. `@contactzilla/api-client/extend` sets this up:
+Apps built inside a Contactzilla Extend stack don't hold a token. They call the stack's proxy, which the stack sets in `CZ_API_BASE`. The proxy adds the stack's credentials and records which user acted. `@atomica-software/contactzilla/extend` sets this up:
 
 ```ts
-import { createExtendClient, ExtendNotConnectedError } from "@contactzilla/api-client/extend";
+import { createExtendClient, ExtendNotConnectedError } from "@atomica-software/contactzilla/extend";
 
 // Server code only (e.g. a React Router loader). `viewer` comes from the X-CZ-* request headers.
 const cz = createExtendClient({ viewer: { id: viewer.id } });
@@ -212,7 +212,7 @@ A stack can only reach its own team.
 The document this package was generated from ships with it:
 
 ```ts
-import spec from "@contactzilla/api-client/openapi.json" with { type: "json" };
+import spec from "@atomica-software/contactzilla/openapi.json" with { type: "json" };
 ```
 
 The live one is at <https://contactzilla.com/api/v1/openapi.json>. `SPEC_VERSION` and `SPEC_HASH` say which version of it this package was built from.

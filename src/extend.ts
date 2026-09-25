@@ -8,7 +8,7 @@
  * 503 `cz_not_connected`, which this adapter turns into ExtendNotConnectedError.
  *
  * ```ts
- * import { createExtendClient } from "@contactzilla/api-client/extend";
+ * import { createExtendClient } from "@atomica-software/contactzilla/extend";
  *
  * const cz = createExtendClient({ viewer }); // viewer: { id } from the X-CZ-* request headers
  * const { data: books } = await cz.listAddressBooks({ team: viewer.team });

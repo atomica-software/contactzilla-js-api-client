@@ -14,7 +14,7 @@ export interface OutgoingRequest {
 /**
  * Adapts the client to an environment, such as a proxy that adds credentials:
  * defaults for the options, a hook before each request, and error translation.
- * See `@contactzilla/api-client/extend` for an example.
+ * See `@atomica-software/contactzilla/extend` for an example.
  */
 export interface ClientAdapter {
   /** A name for debugging. */
