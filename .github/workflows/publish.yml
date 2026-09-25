@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance / trusted publishing
+  id-token: write # npm trusted publishing (OIDC) and provenance
 
 jobs:
   publish:
@@ -28,8 +28,8 @@ jobs:
           version="$(node -p 'require("./package.json").version')"
           test "${GITHUB_REF_NAME}" = "v${version}" || { echo "Tag ${GITHUB_REF_NAME} doesn't match package.json ${version}"; exit 1; }
       - run: npm run generate:check && npm run typecheck && npm test && npm run build
-      # With npm trusted publishing configured for this workflow no token is needed;
-      # otherwise set the NPM_TOKEN secret (an automation token) on the "npm" environment.
+      # Trusted publishing only: npm exchanges this job's OIDC identity (id-token: write)
+      # for a short-lived credential. No npm token is stored anywhere, so there's none
+      # to leak. Configure it on npmjs.com: package Settings > Trusted Publisher >
+      # GitHub Actions, atomica-software / contactzilla-js-api-client, publish.yml, env "npm".
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
