@@ -1,0 +1,63 @@
+{
+  "name": "@contactzilla/api-client",
+  "version": "0.1.0",
+  "description": "Typed client for the Contactzilla API, generated from its OpenAPI description. Zero dependencies; Node 18+, browsers, Deno and Bun.",
+  "license": "MIT",
+  "author": "Atomica Software",
+  "homepage": "https://github.com/atomica-software/contactzilla-js-api-client#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atomica-software/contactzilla-js-api-client.git"
+  },
+  "bugs": "https://github.com/atomica-software/contactzilla-js-api-client/issues",
+  "keywords": [
+    "contactzilla",
+    "contacts",
+    "api",
+    "client",
+    "sdk",
+    "openapi",
+    "typescript"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./extend": {
+      "types": "./dist/extend.d.ts",
+      "import": "./dist/extend.js"
+    },
+    "./openapi.json": "./openapi/contactzilla.openapi.json",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "openapi/contactzilla.openapi.json",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check",
+    "update-spec": "node scripts/update-spec.mjs",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:live": "vitest run tests/live.test.ts",
+    "prepublishOnly": "npm run generate:check && npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
