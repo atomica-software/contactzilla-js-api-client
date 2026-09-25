@@ -33,6 +33,26 @@ npm install @atomica-software/contactzilla
 
 The package is ESM with bundled type definitions.
 
+## Regions
+
+Contactzilla runs in more than one region. Each account's data lives on one host:
+
+| Host | |
+|---|---|
+| `https://contactzilla.app` | Main infrastructure (the default) |
+| `https://contactzilla.us` | US infrastructure |
+
+Pick the host with the `host` option, or set `CZ_API_HOST` in the environment. `/api/v1` is added for you:
+
+```ts
+import { ContactzillaClient, CONTACTZILLA_HOSTS } from "@atomica-software/contactzilla";
+
+new ContactzillaClient({ host: CONTACTZILLA_HOSTS.us, token }); // https://contactzilla.us/api/v1
+new ContactzillaClient({ token }); // CZ_API_HOST if set, else https://contactzilla.app
+```
+
+The client uses the first of these that's set: `baseUrl` (a full API root), `host`, `CZ_API_HOST`, then `https://contactzilla.app`.
+
 ## Authentication
 
 Every request needs a token that can reach the team:
@@ -140,7 +160,8 @@ try {
 
 ```ts
 new ContactzillaClient({
-  baseUrl: "https://contactzilla.app/api/v1", // the API root, including /api/v1
+  host: "https://contactzilla.us",             // the region's host (default: CZ_API_HOST, else contactzilla.app)
+  baseUrl: undefined,                          // or a full API root incl. /api/v1 (a proxy, a local instance)
   token: "…",                                  // or () => string | Promise<string>
   headers: { "X-Request-Id": "…" },            // added to every request
   timeoutMs: 30_000,                           // per request; 0 disables
@@ -184,7 +205,7 @@ const cz = new ContactzillaClient({ adapter: viaMyProxy });
 Apps built inside a Contactzilla Extend stack don't hold a token. They call the stack's proxy, which the stack sets in `CZ_API_BASE`. The proxy adds the stack's credentials and records which user acted. `@atomica-software/contactzilla/extend` sets this up:
 
 ```ts
-import { createExtendClient, ExtendNotConnectedError } from "@atomica-software/contactzilla/extend";
+import { contactzillaHost, createExtendClient, ExtendNotConnectedError } from "@atomica-software/contactzilla/extend";
 
 // Server code only (e.g. a React Router loader). `viewer` comes from the X-CZ-* request headers.
 const cz = createExtendClient({ viewer: { id: viewer.id } });
@@ -201,6 +222,7 @@ try {
 
 The Extend adapter:
 - reads `CZ_API_BASE`, or a `baseUrl` you pass
+- goes through the proxy, which already talks to the stack's own region; `contactzillaHost()` gives that host (`CZ_API_HOST`) for building links to Contactzilla pages
 - never sends a token
 - sends the viewer as `X-CZ-User-Id`
 - turns the proxy's `503 cz_not_connected` into `ExtendNotConnectedError`.

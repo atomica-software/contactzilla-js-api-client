@@ -2,7 +2,31 @@ import { ContactzillaError, errorFor } from "./errors.js";
 import { ContactzillaOperations, operations, type OperationId } from "./generated/api.js";
 import type { ClientAdapter, ClientOptions, FetchLike, OutgoingRequest, RequestOptions } from "./types.js";
 
-export const DEFAULT_BASE_URL = "https://contactzilla.app/api/v1";
+/** Contactzilla's hosts. Data lives in one region; use the host your account is on. */
+export const CONTACTZILLA_HOSTS = {
+  /** The main (EU) infrastructure. */
+  app: "https://contactzilla.app",
+  /** The US infrastructure. */
+  us: "https://contactzilla.us",
+} as const;
+
+export const DEFAULT_HOST = CONTACTZILLA_HOSTS.app;
+export const DEFAULT_BASE_URL = `${DEFAULT_HOST}/api/v1`;
+
+/**
+ * The API root to use: an explicit baseUrl, else `<host>/api/v1` for the host
+ * option, the CZ_API_HOST environment variable, or contactzilla.app.
+ */
+export function resolveBaseUrl(options: { baseUrl?: string; host?: string } = {}): string {
+  if (options.baseUrl) return options.baseUrl.replace(/\/+$/, "");
+  const host = options.host ?? readEnv("CZ_API_HOST") ?? DEFAULT_HOST;
+  return `${host.replace(/\/+$/, "").replace(/\/api\/v1$/, "")}/api/v1`;
+}
+
+function readEnv(name: string): string | undefined {
+  const value = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name];
+  return value ? value : undefined;
+}
 
 const MAX_RETRY_WAIT_S = 60;
 
@@ -30,7 +54,7 @@ export class ContactzillaClient extends ContactzillaOperations {
     // The caller's options win over the adapter's defaults.
     options = { ...options.adapter?.defaults, ...stripUndefined(options) };
     this.options = options;
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    this.baseUrl = resolveBaseUrl(options);
     const f = options.fetch ?? (globalThis.fetch as FetchLike | undefined);
     if (!f) {
       throw new Error("No fetch available: use Node 18+ or pass { fetch } to ContactzillaClient.");

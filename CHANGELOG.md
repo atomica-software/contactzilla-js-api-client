@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- Regions: a `host` option and the `CZ_API_HOST` environment variable choose the Contactzilla host (`/api/v1` is added). `CONTACTZILLA_HOSTS` lists them: `app` (default, https://contactzilla.app) and `us` (https://contactzilla.us). `resolveBaseUrl()` shows which API root a set of options gives.
+- Extend: `contactzillaHost()` returns the stack's Contactzilla host, for links to Contactzilla pages.
+
 ## 0.1.1
 
 - The default base URL is now production, `https://contactzilla.app/api/v1` (0.1.0 pointed at contactzilla.com). The bundled OpenAPI document's server and OAuth URLs are corrected too.

@@ -1,4 +1,4 @@
-export { ContactzillaClient, DEFAULT_BASE_URL } from "./client.js";
+export { ContactzillaClient, CONTACTZILLA_HOSTS, DEFAULT_BASE_URL, DEFAULT_HOST, resolveBaseUrl } from "./client.js";
 export {
   ContactzillaError,
   ContactzillaAuthError,

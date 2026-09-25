@@ -65,8 +65,17 @@ export function extendAdapter(options: ExtendAdapterOptions = {}): ClientAdapter
   };
 }
 
+/**
+ * The Contactzilla host the stack belongs to (CZ_API_HOST, e.g.
+ * https://contactzilla.app or https://contactzilla.us), for building links to
+ * Contactzilla pages. API calls go through the proxy, not this host.
+ */
+export function contactzillaHost(): string | undefined {
+  return readEnv("CZ_API_HOST")?.replace(/\/+$/, "");
+}
+
 /** A client for an Extend app. Cheap to create: make one per request with that request's viewer. */
-export function createExtendClient(options: ExtendAdapterOptions & Omit<ClientOptions, "baseUrl" | "token" | "adapter"> = {}): ContactzillaClient {
+export function createExtendClient(options: ExtendAdapterOptions & Omit<ClientOptions, "baseUrl" | "host" | "token" | "adapter"> = {}): ContactzillaClient {
   const { baseUrl, viewer, ...rest } = options;
   return new ContactzillaClient({ ...rest, adapter: extendAdapter({ baseUrl, viewer }) });
 }

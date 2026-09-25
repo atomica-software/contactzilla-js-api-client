@@ -29,8 +29,14 @@ export interface ClientAdapter {
 
 export interface ClientOptions {
   /**
-   * The API root, including `/api/v1`. Default `https://contactzilla.app/api/v1`.
-   * Inside an Extend stack, use the stack's proxy: `process.env.CZ_API_BASE`.
+   * The Contactzilla host your account is on, e.g. `https://contactzilla.us`
+   * (see CONTACTZILLA_HOSTS). `/api/v1` is added. Default: the CZ_API_HOST
+   * environment variable, else `https://contactzilla.app`.
+   */
+  host?: string;
+  /**
+   * The full API root, including `/api/v1`, for anything other than a standard
+   * host (a proxy, a local instance). Takes precedence over `host`.
    */
   baseUrl?: string;
   /**
