@@ -29,7 +29,7 @@ export interface ClientAdapter {
 
 export interface ClientOptions {
   /**
-   * The API root, including `/api/v1`. Default `https://contactzilla.com/api/v1`.
+   * The API root, including `/api/v1`. Default `https://contactzilla.app/api/v1`.
    * Inside an Extend stack, use the stack's proxy: `process.env.CZ_API_BASE`.
    */
   baseUrl?: string;

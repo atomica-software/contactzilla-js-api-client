@@ -1,8 +1,8 @@
 # @atomica-software/contactzilla
 
-A typed JavaScript/TypeScript client for the [Contactzilla](https://contactzilla.com) API.
+A typed JavaScript/TypeScript client for the [Contactzilla](https://contactzilla.app) API.
 
-- **Every endpoint is a typed method.** `listContacts`, `getContact`, `createContact` and the rest are generated from Contactzilla's [OpenAPI 3.1 description](https://contactzilla.com/api/v1/openapi.json). Arguments and responses are exactly typed, so your editor completes them and a wrong field is a compile error, not a surprise at runtime.
+- **Every endpoint is a typed method.** `listContacts`, `getContact`, `createContact` and the rest are generated from Contactzilla's [OpenAPI 3.1 description](https://contactzilla.app/api/v1/openapi.json). Arguments and responses are exactly typed, so your editor completes them and a wrong field is a compile error, not a surprise at runtime.
 - **Zero dependencies.** Uses the platform's `fetch`: Node 18+, browsers, Deno, Bun, edge runtimes.
 - **Production-ready basics:**
   - tokens that refresh
@@ -140,7 +140,7 @@ try {
 
 ```ts
 new ContactzillaClient({
-  baseUrl: "https://contactzilla.com/api/v1", // the API root, including /api/v1
+  baseUrl: "https://contactzilla.app/api/v1", // the API root, including /api/v1
   token: "…",                                  // or () => string | Promise<string>
   headers: { "X-Request-Id": "…" },            // added to every request
   timeoutMs: 30_000,                           // per request; 0 disables
@@ -215,7 +215,7 @@ The document this package was generated from ships with it:
 import spec from "@atomica-software/contactzilla/openapi.json" with { type: "json" };
 ```
 
-The live one is at <https://contactzilla.com/api/v1/openapi.json>. `SPEC_VERSION` and `SPEC_HASH` say which version of it this package was built from.
+The live one is at <https://contactzilla.app/api/v1/openapi.json>. `SPEC_VERSION` and `SPEC_HASH` say which version of it this package was built from.
 
 ## Development
 
@@ -231,7 +231,7 @@ npm run build
 **Live tests:** these call a real Contactzilla and are read-only.
 
 ```sh
-CONTACTZILLA_BASE_URL=https://contactzilla.com/api/v1 CONTACTZILLA_TOKEN=… npm run test:live
+CONTACTZILLA_BASE_URL=https://contactzilla.app/api/v1 CONTACTZILLA_TOKEN=… npm run test:live
 ```
 
 **How the code is made:**

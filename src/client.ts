@@ -2,7 +2,7 @@ import { ContactzillaError, errorFor } from "./errors.js";
 import { ContactzillaOperations, operations, type OperationId } from "./generated/api.js";
 import type { ClientAdapter, ClientOptions, FetchLike, OutgoingRequest, RequestOptions } from "./types.js";
 
-export const DEFAULT_BASE_URL = "https://contactzilla.com/api/v1";
+export const DEFAULT_BASE_URL = "https://contactzilla.app/api/v1";
 
 const MAX_RETRY_WAIT_S = 60;
 

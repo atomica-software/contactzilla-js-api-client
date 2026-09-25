@@ -1,7 +1,7 @@
 /**
  * Calls a real Contactzilla. Skipped unless CONTACTZILLA_TOKEN is set:
  *
- *   CONTACTZILLA_BASE_URL=https://contactzilla.com/api/v1 CONTACTZILLA_TOKEN=… npm run test:live
+ *   CONTACTZILLA_BASE_URL=https://contactzilla.app/api/v1 CONTACTZILLA_TOKEN=… npm run test:live
  *
  * Read-only: it lists and reads, and never changes anything.
  */

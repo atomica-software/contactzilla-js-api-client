@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://contactzilla.com"
+      "url": "https://contactzilla.app"
     }
   ],
   "tags": [
@@ -53,7 +53,7 @@
                   "name": "Ada Lovelace",
                   "email": "ada@example.com",
                   "email_verified_at": "2026-01-12T10:00:00.000000Z",
-                  "profile_photo_url": "https://contactzilla.com/storage/profile-photos/ada.jpg",
+                  "profile_photo_url": "https://contactzilla.app/storage/profile-photos/ada.jpg",
                   "current_team_id": 7,
                   "current_team": {
                     "id": 7,
@@ -193,8 +193,8 @@
                     }
                   ],
                   "links": {
-                    "first": "https://contactzilla.com/api/v1/teams?page=1",
-                    "last": "https://contactzilla.com/api/v1/teams?page=1",
+                    "first": "https://contactzilla.app/api/v1/teams?page=1",
+                    "last": "https://contactzilla.app/api/v1/teams?page=1",
                     "prev": null,
                     "next": null
                   },
@@ -203,7 +203,7 @@
                     "from": 1,
                     "last_page": 1,
                     "links": [],
-                    "path": "https://contactzilla.com/api/v1/teams",
+                    "path": "https://contactzilla.app/api/v1/teams",
                     "per_page": 100,
                     "to": 1,
                     "total": 1
@@ -7220,9 +7220,9 @@
         "type": "oauth2",
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "https://contactzilla.com/oauth/authorize",
-            "tokenUrl": "https://contactzilla.com/oauth/token",
-            "refreshUrl": "https://contactzilla.com/oauth/token",
+            "authorizationUrl": "https://contactzilla.app/oauth/authorize",
+            "tokenUrl": "https://contactzilla.app/oauth/token",
+            "refreshUrl": "https://contactzilla.app/oauth/token",
             "scopes": {
               "contacts.read": "Read contacts in an address book",
               "contacts.add": "Add contacts to an address book",

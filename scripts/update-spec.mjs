@@ -2,7 +2,7 @@
 /**
  * Refresh openapi/contactzilla.openapi.json from a Contactzilla instance, then
  * regenerate the client:  npm run update-spec -- [url]
- * Default: https://contactzilla.com/api/v1/openapi.json. The vendored copy
+ * Default: https://contactzilla.app/api/v1/openapi.json. The vendored copy
  * always names production as its server, whichever instance it came from.
  */
 import { writeFileSync } from "node:fs";
@@ -11,8 +11,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const source = process.argv[2] ?? "https://contactzilla.com/api/v1/openapi.json";
-const PRODUCTION = "https://contactzilla.com";
+const source = process.argv[2] ?? "https://contactzilla.app/api/v1/openapi.json";
+const PRODUCTION = "https://contactzilla.app";
 
 const response = await fetch(source, { headers: { Accept: "application/json" } });
 if (!response.ok) {
