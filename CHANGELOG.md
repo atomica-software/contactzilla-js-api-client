@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `listContacts` and `getContact` return `ContactWithData`, whose `contact_data` is always present. List results already carried it; the types now say so.
+- `listContacts` filters by custom field: `custom: { Roles: "Teaching Assistant" }` sends `custom[Roles]=Teaching Assistant`, and a list of values (`{ Roles: ["A", "B"] }`) accepts any of them. `custom_match` (`all`, the default, or `any`) combines several fields. Object query parameters work in `request()` too.
+- `paginateContacts` yields `ContactWithData`.
+- Regenerated from the current API: webhooks (`listWebhooks`, `createWebhook`, `getWebhook`, `updateWebhook`, `deleteWebhook`, `rotateWebhookSecret`, `testWebhook`, `listWebhookDeliveries`), `listBatchContacts`, and `AddressBook.in_app`.
+- `npm run update-spec` also takes a file exported with `php artisan api:openapi`.
+
 ## 0.2.0
 
 - Regions: a `host` option and the `CZ_API_HOST` environment variable choose the Contactzilla host (`/api/v1` is added). `CONTACTZILLA_HOSTS` lists them: `app` (default, https://contactzilla.app) and `us` (https://contactzilla.us). `resolveBaseUrl()` shows which API root a set of options gives.

@@ -28,6 +28,10 @@
       "description": "The field catalogue every contact is built from, and custom fields."
     },
     {
+      "name": "Webhooks",
+      "description": "Tell another service when contacts change. Deliveries carry ids only; fetch the details with the endpoints above."
+    },
+    {
       "name": "Utilities"
     }
   ],
@@ -628,7 +632,7 @@
       "get": {
         "operationId": "listContacts",
         "summary": "List and search contacts",
-        "description": "Pages of 50, newest changes included when you pass updated_since — the way to sync incrementally. Hidden contacts are omitted unless preset_filter=hiddencontacts (administrators only).",
+        "description": "Pages of 50, newest changes included when you pass updated_since — the way to sync incrementally. Each result includes its contact_data (emails, phones, labels, custom fields — every value on the contact), the same as Get a contact, so there is no need to fetch contacts one by one. Hidden contacts are omitted unless preset_filter=hiddencontacts (administrators only).",
         "tags": [
           "Contacts"
         ],
@@ -690,6 +694,44 @@
               "enum": [
                 "any",
                 "all"
+              ]
+            }
+          },
+          {
+            "name": "custom",
+            "in": "query",
+            "required": false,
+            "description": "Filter by custom field values: custom[Roles]=Teaching Assistant matches contacts whose Roles field is exactly that value (field names ignore case); custom[Roles][]=A&custom[Roles][]=B accepts either value.",
+            "style": "deepObject",
+            "explode": true,
+            "schema": {
+              "type": "object",
+              "description": "Custom field name => value, or a list of accepted values.",
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "custom_match",
+            "in": "query",
+            "required": false,
+            "description": "With several custom[...] fields, whether a contact must match all of them (default) or any.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "any"
               ]
             }
           },
@@ -779,7 +821,7 @@
                     "results": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/Contact"
+                        "$ref": "#/components/schemas/ContactWithData"
                       }
                     },
                     "current_sort": {
@@ -2235,7 +2277,7 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/Contact"
+                      "$ref": "#/components/schemas/ContactWithData"
                     }
                   },
                   "required": [
@@ -6049,6 +6091,1249 @@
         ]
       }
     },
+    "/api/v1/teams/{team}/address-books/{address_book}/webhooks": {
+      "get": {
+        "operationId": "listWebhooks",
+        "summary": "List webhooks",
+        "description": "Administrators only. Also lists the events a webhook can subscribe to.",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Webhook"
+                      }
+                    },
+                    "events": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "The events a webhook can subscribe to, with descriptions."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      },
+      "post": {
+        "operationId": "createWebhook",
+        "summary": "Register a webhook",
+        "description": "Administrators only. Contactzilla POSTs a small JSON body to the URL when a subscribed event happens: {id, event, created_at, team, address_book, object: {type, id}, data?, actor}. It carries ids only; fetch the contact with GET /contacts/{contact}. actor says who made the change: {type: \"user\", user_id} for a person in Contactzilla, {type: \"api\", user_id, client_id} for an app using an API token, {type: \"app\", user_id, client_id, stack} for an Extend app, or {type: \"system\"}. To avoid loops, ignore events whose client_id is your own before updating the contact in response. Saving a contact without changing anything sends no contact.updated. Each event is sent 5 seconds after the change, and the same event about the same object, by the same actor with the same details (e.g. the same label), while that delivery is waiting or being sent is folded into it, so fetch the object when the delivery arrives rather than relying on the event alone. If your app answers contact.updated by updating the contact, do it before responding to the delivery so the change is folded in rather than starting another round. Events: contact.created, contact.updated, contact.deleted, contact.label_added, contact.label_removed, contacts.bulk_changed (or \"*\" for all). contacts.bulk_changed has object type \"batch\": list its contacts with GET /batches/{batch}/contacts. A bulk copy or move is reported to both address books: data.direction is \"out\" in the one the contacts came from (the batch lists the originals) and \"in\" in the destination (it lists the new contacts). Every delivery is signed: X-Contactzilla-Signature: t={unix time},v1={hex HMAC-SHA256 of \"{t}.{raw body}\" with the secret}. The secret is returned only here. Failed deliveries are tried 5 times in all, backing off over about 20 minutes; answer quickly (queue slow work) so a delivery is not retried while your app is still busy with it. A webhook that fails 20 deliveries in a row is switched off, and one with more than 50 failed attempts within ten minutes is paused and its queued deliveries dropped.",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "An https URL on the public internet."
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url",
+                  "events"
+                ]
+              },
+              "example": {
+                "url": "",
+                "events": [],
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    },
+                    "secret": {
+                      "type": "string",
+                      "description": "Signs every delivery. Shown only now."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      }
+    },
+    "/api/v1/teams/{team}/address-books/{address_book}/webhooks/{webhook}": {
+      "get": {
+        "operationId": "getWebhook",
+        "summary": "Get a webhook",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhook",
+            "in": "path",
+            "required": true,
+            "description": null,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      },
+      "patch": {
+        "operationId": "updateWebhook",
+        "summary": "Change a webhook",
+        "description": "Set active to true to switch a webhook back on after failures.",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhook",
+            "in": "path",
+            "required": true,
+            "description": null,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": []
+              },
+              "example": {
+                "url": "",
+                "events": [],
+                "description": "",
+                "active": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      },
+      "delete": {
+        "operationId": "deleteWebhook",
+        "summary": "Delete a webhook",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhook",
+            "in": "path",
+            "required": true,
+            "description": null,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      }
+    },
+    "/api/v1/teams/{team}/address-books/{address_book}/webhooks/{webhook}/rotate-secret": {
+      "post": {
+        "operationId": "rotateWebhookSecret",
+        "summary": "Make a new signing secret",
+        "description": "The old secret stops working at once.",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhook",
+            "in": "path",
+            "required": true,
+            "description": null,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    },
+                    "secret": {
+                      "type": "string",
+                      "description": "Signs every delivery. Shown only now."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      }
+    },
+    "/api/v1/teams/{team}/address-books/{address_book}/webhooks/{webhook}/test": {
+      "post": {
+        "operationId": "testWebhook",
+        "summary": "Send a test delivery",
+        "description": "Sends a webhook.test event now and reports how the endpoint answered.",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhook",
+            "in": "path",
+            "required": true,
+            "description": null,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/WebhookDelivery"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      }
+    },
+    "/api/v1/teams/{team}/address-books/{address_book}/webhooks/{webhook}/deliveries": {
+      "get": {
+        "operationId": "listWebhookDeliveries",
+        "summary": "Recent deliveries",
+        "description": "The last deliveries (kept for 30 days), newest first.",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhook",
+            "in": "path",
+            "required": true,
+            "description": null,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "1–100, default 50.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDelivery"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "webhooks.manage"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "webhooks.manage"
+        ]
+      }
+    },
+    "/api/v1/teams/{team}/address-books/{address_book}/batches/{batch}/contacts": {
+      "get": {
+        "operationId": "listBatchContacts",
+        "summary": "Contacts a bulk change touched",
+        "description": "The ids of the contacts a bulk operation or import changed, the object of a contacts.bulk_changed webhook. For deletes they are the deleted contacts. A page at a time: pass next as after.",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "description": "Team slug, from GET /api/v1/teams.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "address_book",
+            "in": "path",
+            "required": true,
+            "description": "Address book slug, from GET /api/v1/teams/{team}/address-books.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "batch",
+            "in": "path",
+            "required": true,
+            "description": "Batch id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "description": "The next value from the previous page.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "1–1000, default 500.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batch": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "action": {
+                          "type": "string"
+                        },
+                        "count": {
+                          "type": "integer"
+                        },
+                        "completed_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "action",
+                        "count",
+                        "completed_at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "next": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Pass as `after` for the next page; null on the last one."
+                    }
+                  },
+                  "required": [
+                    "batch",
+                    "data",
+                    "next"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired or revoked token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token lacks the scope, API access is off for the team, or the user can't see this address book.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown team, address book, contact or field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid input; errors lists the problems.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited; retry after the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "contacts.read"
+            ]
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-scopes": [
+          "contacts.read"
+        ]
+      }
+    },
     "/api/v1/phone/details": {
       "post": {
         "operationId": "getPhoneDetails",
@@ -6320,6 +7605,10 @@
           },
           "team": {
             "$ref": "#/components/schemas/Team"
+          },
+          "in_app": {
+            "type": "boolean",
+            "description": "Only on an Extend stack's own calls: whether its app is available in this address book."
           }
         },
         "required": [
@@ -6494,6 +7783,155 @@
           "bio",
           "hidden",
           "hidden_at"
+        ],
+        "additionalProperties": false
+      },
+      "ContactWithData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "team_id": {
+            "type": "integer"
+          },
+          "address_book_id": {
+            "type": "integer"
+          },
+          "created_by": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "updated_by": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "deleted_by": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deleted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "first_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "company_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_company": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL of the contact photo."
+          },
+          "pronouns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bio": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "hidden_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "is_selected": {
+            "type": "boolean"
+          },
+          "contact_data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactData"
+            }
+          },
+          "address_book": {
+            "$ref": "#/components/schemas/AddressBookRef"
+          }
+        },
+        "required": [
+          "id",
+          "team_id",
+          "address_book_id",
+          "created_by",
+          "updated_by",
+          "deleted_by",
+          "created_at",
+          "updated_at",
+          "deleted_at",
+          "first_name",
+          "last_name",
+          "company_name",
+          "is_company",
+          "avatar",
+          "pronouns",
+          "prefix",
+          "suffix",
+          "bio",
+          "hidden",
+          "hidden_at",
+          "contact_data"
         ],
         "additionalProperties": false
       },
@@ -7102,6 +8540,220 @@
         ],
         "additionalProperties": false
       },
+      "Webhook": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Use in the webhook's paths."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "contact.created",
+                "contact.updated",
+                "contact.deleted",
+                "contact.label_added",
+                "contact.label_removed",
+                "contacts.bulk_changed",
+                "*"
+              ]
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What created it, e.g. \"extend:<stack id>\"."
+          },
+          "last_delivery_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "consecutive_failures": {
+            "type": "integer"
+          },
+          "disabled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "disabled_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "description",
+          "events",
+          "active",
+          "source",
+          "last_delivery_at",
+          "last_status",
+          "consecutive_failures",
+          "disabled_at",
+          "disabled_reason",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "object": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "contact",
+                  "batch",
+                  "webhook"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "actor": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "api",
+                  "app",
+                  "system"
+                ]
+              },
+              "user_id": {
+                "type": "integer"
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "stack": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "http_status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_ms": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "delivered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "object",
+          "actor",
+          "status",
+          "attempts",
+          "http_status",
+          "duration_ms",
+          "error",
+          "created_at",
+          "delivered_at"
+        ],
+        "additionalProperties": false
+      },
       "Message": {
         "type": "object",
         "properties": {
@@ -7228,7 +8880,8 @@
               "contacts.add": "Add contacts to an address book",
               "contacts.update": "Update contacts in an address book",
               "contacts.delete": "Delete contacts in an address book",
-              "mcp:use": "Use the Contactzilla MCP server"
+              "mcp:use": "Use the Contactzilla MCP server",
+              "webhooks.manage": "Register and manage webhooks for an address book"
             }
           }
         }

@@ -30,7 +30,13 @@ function readEnv(name: string): string | undefined {
 
 const MAX_RETRY_WAIT_S = 60;
 
-type QueryValue = string | number | boolean | null | undefined | Array<string | number | boolean>;
+type QueryScalar = string | number | boolean;
+type QueryValue =
+  | QueryScalar
+  | null
+  | undefined
+  | QueryScalar[]
+  | { [key: string]: QueryScalar | QueryScalar[] | null | undefined };
 
 /**
  * The Contactzilla API client. Every API operation is a typed method
@@ -98,15 +104,7 @@ export class ContactzillaClient extends ContactzillaOperations {
 
   private url(path: string, query?: Record<string, QueryValue>): string {
     const url = new URL(`${this.baseUrl}/${path.replace(/^\/+/, "")}`);
-    for (const [name, value] of Object.entries(query ?? {})) {
-      if (value === undefined || value === null) continue;
-      if (Array.isArray(value)) {
-        // Laravel reads repeated `name[]` as an array.
-        for (const item of value) url.searchParams.append(`${name}[]`, String(item));
-      } else {
-        url.searchParams.set(name, String(value));
-      }
-    }
+    for (const [name, value] of Object.entries(query ?? {})) appendQuery(url.searchParams, name, value);
     return url.toString();
   }
 
@@ -159,6 +157,22 @@ export class ContactzillaClient extends ContactzillaOperations {
     } finally {
       cancel();
     }
+  }
+}
+
+/**
+ * Adds one query parameter the way Laravel reads it: an array as repeated
+ * `name[]`, an object (OpenAPI deepObject) as `name[key]=value`, e.g.
+ * `custom[Roles]=Teacher`, and an array inside one as `custom[Roles][]=A`.
+ */
+function appendQuery(params: URLSearchParams, name: string, value: unknown): void {
+  if (value === undefined || value === null) return;
+  if (Array.isArray(value)) {
+    for (const item of value) if (item !== undefined && item !== null) params.append(`${name}[]`, String(item));
+  } else if (typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) appendQuery(params, `${name}[${key}]`, item);
+  } else {
+    params.set(name, String(value));
   }
 }
 
