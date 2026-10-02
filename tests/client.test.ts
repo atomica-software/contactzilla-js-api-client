@@ -11,6 +11,8 @@ import {
   operations,
   paginateContacts,
   type Contact,
+  type ContactData,
+  type ContactWithData,
   type ListContactsResponse,
 } from "../src/index.js";
 import { json, mockFetch } from "./helpers.js";
@@ -42,6 +44,48 @@ describe("requests", () => {
     expect(url.searchParams.get("sort_by")).toBe("last_name");
     expect(url.searchParams.has("query")).toBe(false);
     expect(calls[0]!.headers.Authorization).toBeUndefined();
+  });
+
+  it("serialises an object parameter as name[key]=value, with arrays inside as name[key][]", async () => {
+    const { fetch, calls } = mockFetch(json(200, { count: 0, results: [] }));
+    const cz = new ContactzillaClient({ fetch });
+
+    await cz.listContacts({
+      team: "acme",
+      address_book: "staff",
+      custom: { Roles: "Teaching Assistant", "Key stage": ["KS1", "KS2"] },
+      custom_match: "any",
+    });
+
+    const url = new URL(calls[0]!.url);
+    expect([...url.searchParams]).toEqual([
+      ["custom[Roles]", "Teaching Assistant"],
+      ["custom[Key stage][]", "KS1"],
+      ["custom[Key stage][]", "KS2"],
+      ["custom_match", "any"],
+    ]);
+    // Encoded so that the name's spaces and brackets survive the trip to Laravel.
+    expect(calls[0]!.url).toContain("custom%5BRoles%5D=Teaching+Assistant");
+  });
+
+  it("serialises object parameters for request() too, skipping empty values", async () => {
+    const { fetch, calls } = mockFetch(json(200, {}));
+    const cz = new ContactzillaClient({ fetch });
+
+    await cz.request("GET", "/teams/acme/address-books/staff/contacts", { query: { custom: { Roles: "Teacher", Team: undefined, Phase: null, Years: [] } } });
+
+    expect([...new URL(calls[0]!.url).searchParams]).toEqual([["custom[Roles]", "Teacher"]]);
+  });
+
+  it("types list and get results with their contact_data", async () => {
+    const { fetch } = mockFetch(json(200, { data: { ...contact("c-1"), contact_data: [] } }));
+    const cz = new ContactzillaClient({ fetch });
+
+    const { data } = await cz.getContact({ team: "acme", address_book: "customers", contact: "c-1" });
+
+    expectTypeOf(data).toEqualTypeOf<ContactWithData>();
+    expectTypeOf(data.contact_data).toEqualTypeOf<ContactData[]>();
+    expectTypeOf<ListContactsResponse["results"][number]>().toEqualTypeOf<ContactWithData>();
   });
 
   it("sends the body as JSON and returns the parsed, typed response", async () => {

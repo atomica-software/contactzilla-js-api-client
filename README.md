@@ -104,13 +104,29 @@ Responses are exactly what the API returns. The envelope differs between endpoin
 
 | Method | Returns |
 |---|---|
-| `listContacts` | `{ count, total_address_book_count, results: Contact[], … }` |
-| `getContact`, `createContact`, `updateContact` | `{ data: Contact }` |
+| `listContacts` | `{ count, total_address_book_count, results: ContactWithData[], … }` |
+| `getContact` | `{ data: ContactWithData }` |
+| `createContact`, `updateContact` | `{ data: Contact }` |
 | `listTeams` | `{ data: Team[], links, meta }` |
 | `listAddressBookLabels` | `{ activeLabels, unusedLabels, archivedLabels }` |
 | `listContactFieldLabels` | `ContactFieldLabel[]` |
 
-Every schema is exported as a type (`Contact`, `ContactData`, `Team`, `AddressBook`, `AddressBookLabel`, …). So is every operation's `…Args`, `…Body` and `…Response`, e.g. `ListContactsArgs` and `ListContactsResponse`.
+List and get results carry every value on the contact in `contact_data` (emails, phones, labels, custom fields), so there's no need to fetch contacts one by one after listing them.
+
+Every schema is exported as a type (`Contact`, `ContactWithData`, `ContactData`, `Team`, `AddressBook`, `AddressBookLabel`, …). So is every operation's `…Args`, `…Body` and `…Response`, e.g. `ListContactsArgs` and `ListContactsResponse`.
+
+### Filtering by custom field
+
+`custom` matches the exact value of a Custom field (field names ignore case). A list of values accepts any of them. With several fields, `custom_match` says whether a contact must match `all` of them (the default) or `any`:
+
+```ts
+const { results } = await cz.listContacts({
+  team: "acme",
+  address_book: "staff",
+  custom: { Roles: "Teaching Assistant", "Key stage": ["KS1", "KS2"] }, // custom[Roles]=…&custom[Key stage][]=KS1&…
+  custom_match: "all",
+});
+```
 
 ### Every contact of a search
 
@@ -243,12 +259,14 @@ The live one is at <https://contactzilla.app/api/v1/openapi.json>. `SPEC_VERSION
 
 ```sh
 npm install
-npm run update-spec      # fetch the latest OpenAPI document and regenerate (or: npm run update-spec -- <url>)
+npm run update-spec      # fetch the latest OpenAPI document and regenerate (or: npm run update-spec -- <url | file>)
 npm run generate         # regenerate src/generated/api.ts from openapi/contactzilla.openapi.json
 npm run typecheck
 npm test                 # unit tests (mocked fetch)
 npm run build
 ```
+
+To build from an API that isn't deployed yet, export its document from a contactzilla-laravel checkout with `php artisan api:openapi --output=openapi.json`, then `npm run update-spec -- path/to/openapi.json`.
 
 **Live tests:** these call a real Contactzilla and are read-only.
 
